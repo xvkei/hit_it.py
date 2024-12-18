@@ -1,0 +1,160 @@
+import pygame, sys, random
+
+# Difficulty settings
+# Easy      -> Ball speed (5)
+# Medium    -> Ball speed (7)
+# Hard      -> Ball speed (10)
+difficulty = 5
+
+# Window size
+frame_size_x = 720
+frame_size_y = 480
+
+# Initialize Pygame and check for errors
+check_errors = pygame.init()
+if check_errors[1] > 0:
+    print(f'[!] Had {check_errors[1]} errors when initializing game, exiting...')
+    sys.exit(-1)
+else:
+    print('[+] Game successfully initialized')
+
+# Initialize game window
+pygame.display.set_caption('Hit it')
+game_window = pygame.display.set_mode((frame_size_x, frame_size_y))
+
+# Colors (R, G, B)
+black = pygame.Color(0, 0, 0)
+white = pygame.Color(255, 255, 255)
+red = pygame.Color(255, 0, 0)
+blue = pygame.Color(0, 0, 255)
+green = pygame.Color(0, 255, 0)
+yellow = pygame.Color(255, 255, 0)
+
+# FPS (frames per second) controller
+fps_controller = pygame.time.Clock()
+
+# Game variables
+paddle_width = 100
+paddle_height = 20
+paddle_speed = 10
+paddle = pygame.Rect(frame_size_x // 2 - paddle_width // 2, frame_size_y - 50, paddle_width, paddle_height)
+
+ball_radius = 10
+ball_speed_x = random.choice([-difficulty, difficulty])
+ball_speed_y = -difficulty
+ball = pygame.Rect(frame_size_x // 2, frame_size_y // 2, ball_radius * 2, ball_radius * 2)
+
+# Brick settings
+brick_rows = 5
+brick_cols = 10
+brick_width = frame_size_x // brick_cols
+brick_height = 30
+bricks = [[pygame.Rect(col * brick_width, row * brick_height, brick_width, brick_height)
+           for col in range(brick_cols)] for row in range(brick_rows)]
+brick_colors = [red, blue, green, yellow, white]
+
+# Scoring
+score = 0
+
+# Game Over
+def game_over():
+    my_font = pygame.font.SysFont('times new roman', 50)
+    game_over_surface = my_font.render('GAME OVER', True, red)
+    game_over_rect = game_over_surface.get_rect()
+    game_over_rect.midtop = (frame_size_x / 2, frame_size_y / 4)
+    game_window.fill(black)
+    game_window.blit(game_over_surface, game_over_rect)
+    show_score(0, red, 'times', 20)
+    pygame.display.flip()
+    pygame.time.wait(3000)
+    pygame.quit()
+    sys.exit()
+
+# Display Score
+def show_score(choice, color, font, size):
+    score_font = pygame.font.SysFont(font, size)
+    score_surface = score_font.render('Score : ' + str(score), True, color)
+    score_rect = score_surface.get_rect()
+    if choice == 1:
+        score_rect.topleft = (10, 10)
+    else:
+        score_rect.center = (frame_size_x / 2, frame_size_y / 2)
+    game_window.blit(score_surface, score_rect)
+
+# Draw Bricks
+def draw_bricks():
+    for row in range(len(bricks)):
+        for brick in bricks[row]:
+            if brick:
+                pygame.draw.rect(game_window, brick_colors[row % len(brick_colors)], brick)
+                pygame.draw.rect(game_window, black, brick, 2)  # Brick border
+
+# Main logic
+while True:
+    # Event handling
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            pygame.quit()
+            sys.exit()
+
+    # Paddle movement
+    keys = pygame.key.get_pressed()
+    if keys[pygame.K_LEFT] and paddle.left > 0:
+        paddle.move_ip(-paddle_speed, 0)
+    if keys[pygame.K_RIGHT] and paddle.right < frame_size_x:
+        paddle.move_ip(paddle_speed, 0)
+
+    # Ball movement
+    ball.x += ball_speed_x
+    ball.y += ball_speed_y
+
+    # Ball collision with walls
+    if ball.left <= 0 or ball.right >= frame_size_x:
+        ball_speed_x *= -1
+    if ball.top <= 0:
+        ball_speed_y *= -1
+    if ball.bottom >= frame_size_y:
+        game_over()
+
+    # Ball collision with paddle
+    if ball.colliderect(paddle):
+        ball_speed_y *= -1
+        # Add a slight angle based on where the ball hits the paddle
+        ball_speed_x += (ball.centerx - paddle.centerx) // 10
+
+    # Ball collision with bricks
+# Ball collision with bricks
+    for row in bricks:
+        for brick in row:
+            if brick and ball.colliderect(brick):
+                ball_speed_y *= -1
+                row.remove(brick)  # Remove the brick
+                score += 10  # Update the score
+                break
+
+
+    # Win condition (all bricks cleared)
+    if all(not row for row in bricks):
+        my_font = pygame.font.SysFont('times new roman', 90)
+        win_surface = my_font.render('YOU WIN!', True, green)
+        win_rect = win_surface.get_rect()
+        win_rect.midtop = (frame_size_x / 2, frame_size_y / 4)
+        game_window.fill(black)
+        game_window.blit(win_surface, win_rect)
+        pygame.display.flip()
+        pygame.time.wait(3000)
+        pygame.quit()
+        sys.exit()
+
+    # Graphics
+    game_window.fill(black)
+    draw_bricks()
+    pygame.draw.rect(game_window, white, paddle)
+    pygame.draw.ellipse(game_window, yellow, ball)
+    show_score(1, white, 'consolas', 20)
+
+    # Refresh game screen
+    pygame.display.update()
+
+    # Frame rate
+    fps_controller.tick(60)
